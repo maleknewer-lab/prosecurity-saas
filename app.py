@@ -14,7 +14,7 @@ from google import genai
 # تهيئة عميل الذكاء الاصطناعي
 ai_client = genai.Client()
 
-# تهيئة قاعدة البيانات المحلية للذاكرة التاريخية والتتبع
+# تهيئة قاعدة البيانات المحلية للذاكرة التاريخية وتتبع التغيرات
 def init_db():
     conn = sqlite3.connect("security_history.db")
     cursor = conn.cursor()
@@ -82,7 +82,6 @@ class AISecurityScanner:
         self.check_advanced_sensitive_paths()
         self.smart_web_crawler()
         
-        # استرجاع الفحص السابق للمقارنة (Delta Tracking)
         prev_scan = get_previous_scan(self.target_url)
         if prev_scan:
             self.results["historical_delta"] = f"Previous audit recorded on {prev_scan[0]}: {prev_scan[1]}"
@@ -90,8 +89,6 @@ class AISecurityScanner:
             self.results["historical_delta"] = "First recorded security baseline audit for this target."
 
         self.generate_ai_remediation_insights()
-        
-        # حفظ الفحص الحالي في قاعدة البيانات
         save_scan_to_history(self.target_url, "Standard CISO Assessment completed.", self.results)
         return self.results
 
@@ -195,7 +192,6 @@ class AISecurityScanner:
             self.results["discovered_endpoints"] = [f"Crawler notice: {str(e)}"]
 
     def generate_ai_remediation_insights(self):
-        """الاستعلام مع نظام إعادة المحاولة التلقائية لتجنب أخطاء 503 للضغط المؤقت"""
         prompt = f"""
         You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
         Analyze the following comprehensive security scan & crawl map for target: {self.target_url}
@@ -230,11 +226,10 @@ class AISecurityScanner:
                     return
             except Exception as e:
                 if attempt == max_retries - 1:
-                    self.results["ai_analysis"] = f"### Executive Summary Notice\nAutomated heuristics analysis completed successfully. (AI API temporary high demand notice: {str(e)}). Please refresh to re-attempt AI synthesis."
+                    self.results["ai_analysis"] = f"### Executive Summary Notice\nAutomated heuristics analysis completed successfully. (AI API temporary notice: {str(e)})."
                 else:
                     time.sleep(2)
-                    
-        """الاستعلام مع دمج محاكاة
+
 # 2. دالة تحويل الـ Markdown إلى HTML منسق
 def markdown_to_html(text):
     if not text:
@@ -363,7 +358,7 @@ HTML_HOME = """
 </html>
 """
 
-# 4. قالب تقرير الويب التنفيذي
+# 4. قالب تقرير الويب التنفيذي (مع تأمين أقواس الـ CSS لتجنب أخطاء النحو)
 def render_html_report(results):
     headers_rows = ""
     for header, details in results.get("security_headers", {}).items():
