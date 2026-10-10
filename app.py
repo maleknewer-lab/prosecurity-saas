@@ -200,7 +200,7 @@ class AdvancedSecurityScanner(ProfessionalSecurityScanner):
                 if res:
                     self.results["sensitive_files"].append(res)
 
-# 3. قالب الـ HTML (بدون استخدام تداخل ت్రిple quotes)
+# 3. قالب الـ HTML مع ميزة إعادة ضبط الواجهة تلقائياً
 HTML_TEMPLATE = (
     "<!DOCTYPE html>\n"
     "<html lang='en'>\n"
@@ -252,10 +252,18 @@ HTML_TEMPLATE = (
     "                'Compiling executive PDF report...'\n"
     "            ];\n"
     "            let i = 0;\n"
-    "            setInterval(() => {\n"
+    "            let timer = setInterval(() => {\n"
     "                i = (i + 1) % texts.length;\n"
     "                document.getElementById('statusText').innerText = texts[i];\n"
     "            }, 1200);\n"
+    "            \n"
+    "            // إخفاء اللودر وإعادة النموذج لحالته الطبيعية بعد انتهاء التحميل وتنزيل الملف\n"
+    "            setTimeout(() => {\n"
+    "                clearInterval(timer);\n"
+    "                document.getElementById('loader').style.display = 'none';\n"
+    "                document.getElementById('scanForm').reset();\n"
+    "                document.getElementById('scanForm').style.display = 'block';\n"
+    "            }, 4500);\n"
     "        }\n"
     "    </script>\n"
     "</body>\n"
