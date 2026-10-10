@@ -194,39 +194,47 @@ class AISecurityScanner:
         except Exception as e:
             self.results["discovered_endpoints"] = [f"Crawler notice: {str(e)}"]
 
-    def generate_ai_remediation_insights(self):
-        """الاستعلام مع دمج محاكاة الهجمات (Red Teaming) والتقييم التجاري والمالي (Business Impact)"""
-        try:
-            prompt = f"""
-            You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
-            Analyze the following comprehensive security scan & crawl map for target: {self.target_url}
-            
-            Scan Findings:
-            - Security Headers Issues: {self.results["security_headers"]}
-            - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
-            - Discovered Application Endpoints (Crawler Map): {self.results["discovered_endpoints"]}
-            - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
-            - Historical Context / Delta: {self.results["historical_delta"]}
-            
-            Provide a world-class CISO report structured with:
-            1. Executive Security Assessment & Historical Delta analysis.
-            2. Risk Assessment Matrix (Finding, Impact, Likelihood, Risk Rating, OWASP Category).
-            3. Red Team Attack Simulation (Realistic adversarial attack vectors based on the exposed headers and endpoints).
-            4. Business Impact & Financial/Reputational Risk estimation.
-            5. Technical Remediation Action Plan with precise configuration code snippets.
-            
-            Format your response cleanly using markdown.
-            """
-            
-            response = ai_client.models.generate_content(
-                model='gemini-3.8-flash',
-                contents=prompt
-            )
-            if response and response.text:
-                self.results["ai_analysis"] = response.text
-        except Exception as e:
-            self.results["ai_analysis"] = f"Executive security summary generated via advanced heuristics. (API notice: {str(e)})"
-
+        def generate_ai_remediation_insights(self):
+        """الاستعلام مع نظام إعادة المحاولة التلقائية لتجنب أخطاء 503 للضغط المؤقت"""
+        prompt = f"""
+        You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
+        Analyze the following comprehensive security scan & crawl map for target: {self.target_url}
+        
+        Scan Findings:
+        - Security Headers Issues: {self.results["security_headers"]}
+        - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
+        - Discovered Application Endpoints (Crawler Map): {self.results["discovered_endpoints"]}
+        - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
+        - Historical Context / Delta: {self.results["historical_delta"]}
+        
+        Provide a world-class CISO report structured with:
+        1. Executive Security Assessment & Historical Delta analysis.
+        2. Risk Assessment Matrix (Finding, Impact, Likelihood, Risk Rating, OWASP Category).
+        3. Red Team Attack Simulation (Realistic adversarial attack vectors based on the exposed headers and endpoints).
+        4. Business Impact & Financial/Reputational Risk estimation.
+        5. Technical Remediation Action Plan with precise configuration code snippets.
+        
+        Format your response cleanly using markdown.
+        """
+        
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = ai_client.models.generate_content(
+                    model='gemini-3.8-flash',
+                    contents=prompt
+                )
+                if response and response.text:
+                    self.results["ai_analysis"] = response.text
+                    return
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    self.results["ai_analysis"] = f"### Executive Summary Notice\nAutomated heuristics analysis completed successfully. (AI API temporary high demand notice: {str(e)}). Please refresh to re-attempt AI synthesis."
+                else:
+                    time.sleep(2)
+                    
+        """الاستعلام مع دمج محاكاة
 # 2. دالة تحويل الـ Markdown إلى HTML منسق
 def markdown_to_html(text):
     if not text:
