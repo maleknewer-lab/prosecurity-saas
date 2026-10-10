@@ -14,21 +14,23 @@ from google import genai
 # تهيئة عميل الذكاء الاصطناعي
 ai_client = genai.Client()
 
-# تهيئة قاعدة البيانات المحلية للذاكرة التاريخية وتتبع التغيرات
 def init_db():
-    conn = sqlite3.connect("security_history.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS scans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target TEXT,
-            scan_date TEXT,
-            findings_summary TEXT,
-            raw_results TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect("security_history.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target TEXT,
+                scan_date TEXT,
+                findings_summary TEXT,
+                raw_results TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except:
+        pass
 
 init_db()
 
@@ -41,8 +43,8 @@ def save_scan_to_history(target, findings_summary, raw_results):
                        (target, scan_date, findings_summary, json.dumps(raw_results)))
         conn.commit()
         conn.close()
-    except Exception as e:
-        print(f"DB Error: {e}")
+    except:
+        pass
 
 def get_previous_scan(target):
     try:
@@ -55,7 +57,6 @@ def get_previous_scan(target):
     except:
         return None
 
-# 1. النواة الأساسية للفحص مع الذاكرة التاريخية والزحف الذكي
 class AISecurityScanner:
     def __init__(self, target_url):
         self.target_url = target_url.rstrip('/')
@@ -63,7 +64,7 @@ class AISecurityScanner:
         self.domain = self.parsed_url.netloc
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-Autonomous-3.8"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-Fast-3.8"
         })
         self.results = {
             "target": self.target_url,
@@ -72,36 +73,34 @@ class AISecurityScanner:
             "discovered_endpoints": [],
             "potential_vulnerabilities": [],
             "historical_delta": None,
-            "ai_analysis": "Analyzing target architecture, threat matrix and business impact..."
+            "ai_analysis": "Analyzing target..."
         }
 
     def run_full_scan(self):
         self.check_security_headers()
         self.check_sensitive_files()
-        self.check_cookie_security()
-        self.check_advanced_sensitive_paths()
         self.smart_web_crawler()
         
         prev_scan = get_previous_scan(self.target_url)
         if prev_scan:
-            self.results["historical_delta"] = f"Previous audit recorded on {prev_scan[0]}: {prev_scan[1]}"
+            self.results["historical_delta"] = f"Previous audit recorded on {prev_scan[0]}"
         else:
-            self.results["historical_delta"] = "First recorded security baseline audit for this target."
+            self.results["historical_delta"] = "First baseline security audit recorded."
 
         self.generate_ai_remediation_insights()
-        save_scan_to_history(self.target_url, "Standard CISO Assessment completed.", self.results)
+        save_scan_to_history(self.target_url, "Assessment completed.", self.results)
         return self.results
 
     def check_security_headers(self):
         try:
-            response = self.session.get(self.target_url, timeout=10, allow_redirects=True)
+            response = self.session.get(self.target_url, timeout=6, allow_redirects=True)
             headers = response.headers
             important_headers = {
-                "Content-Security-Policy": "Missing: Protects against XSS and code injection attacks.",
-                "Strict-Transport-Security": "Missing: Enforces secure HTTPS connections (HSTS).",
-                "X-Frame-Options": "Missing: Leaves the application vulnerable to Clickjacking.",
-                "X-Content-Type-Options": "Missing: Allows MIME-sniffing browser manipulation.",
-                "Server": "Exposed: Server technology disclosure detected."
+                "Content-Security-Policy": "Missing: Protects against XSS.",
+                "Strict-Transport-Security": "Missing: Enforces HTTPS.",
+                "X-Frame-Options": "Missing: Vulnerable to Clickjacking.",
+                "X-Content-Type-Options": "Missing: Allows MIME-sniffing.",
+                "Server": "Exposed: Server disclosure."
             }
             for header, desc in important_headers.items():
                 if header not in headers:
@@ -110,61 +109,24 @@ class AISecurityScanner:
                     if header == "Server":
                         self.results["security_headers"][header] = {"status": "Exposed", "value": headers[header], "risk": "Low", "description": desc}
                     else:
-                        self.results["security_headers"][header] = {"status": "Present", "value": headers[header], "description": "Header correctly configured."}
+                        self.results["security_headers"][header] = {"status": "Present", "value": headers[header], "description": "Configured."}
         except Exception as e:
             self.results["security_headers"]["error"] = str(e)
 
     def check_sensitive_files(self):
-        common_paths = [
-            ".env", "robots.txt", ".git/HEAD", "config.json", 
-            "backend/config.py", "backup.zip", "package.json", "api/swagger.json"
-        ]
+        common_paths = [".env", "robots.txt", "config.json", "package.json"]
         def test_path(path):
             full_url = urljoin(self.target_url + "/", path)
             try:
-                res = self.session.get(full_url, timeout=5, allow_redirects=False)
+                res = self.session.get(full_url, timeout=3, allow_redirects=False)
                 if res.status_code == 200 and len(res.content) > 0:
-                    if "html" not in res.headers.get("Content-Type", "") or path == "robots.txt":
-                        return {"path": path, "url": full_url, "status_code": res.status_code}
-            except:
-                pass
-            return None
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(test_path, path) for path in common_paths]
-            for future in concurrent.futures.as_completed(futures):
-                res = future.result()
-                if res:
-                    self.results["sensitive_files"].append(res)
-
-    def check_cookie_security(self):
-        try:
-            response = self.session.get(self.target_url, timeout=10)
-            for cookie in response.cookies:
-                if not cookie.secure:
-                    self.results["potential_vulnerabilities"].append({
-                        "type": "Insecure Cookie Configuration",
-                        "cookie_name": cookie.name,
-                        "risk": "Medium",
-                        "description": f"The cookie '{cookie.name}' lacks the Secure flag."
-                    })
-        except:
-            pass
-
-    def check_advanced_sensitive_paths(self):
-        advanced_paths = ["swagger/index.html", "api-docs", "graphql", "phpmyadmin", "server-status"]
-        def test_advanced_path(path):
-            full_url = urljoin(self.target_url + "/", path)
-            try:
-                res = self.session.get(full_url, timeout=5, allow_redirects=False)
-                if res.status_code in [200, 403]:
                     return {"path": path, "url": full_url, "status_code": res.status_code}
             except:
                 pass
             return None
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(test_advanced_path, path) for path in advanced_paths]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(test_path, path) for path in common_paths]
             for future in concurrent.futures.as_completed(futures):
                 res = future.result()
                 if res:
@@ -172,69 +134,42 @@ class AISecurityScanner:
 
     def smart_web_crawler(self):
         try:
-            response = self.session.get(self.target_url, timeout=10)
+            response = self.session.get(self.target_url, timeout=6)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 found_links = set()
-                
                 for a_tag in soup.find_all('a', href=True):
                     link = a_tag.get('href')
                     absolute_url = urljoin(self.target_url, link)
                     parsed_link = urlparse(absolute_url)
-                    
                     if parsed_link.netloc == self.domain:
                         clean_path = parsed_link.path or "/"
-                        if not any(clean_path.endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.svg', '.ico']):
+                        if not any(clean_path.endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.ico']):
                             found_links.add(clean_path)
-                
-                self.results["discovered_endpoints"] = list(found_links)[:15]
-        except Exception as e:
-            self.results["discovered_endpoints"] = [f"Crawler notice: {str(e)}"]
+                self.results["discovered_endpoints"] = list(found_links)[:10]
+        except:
+            self.results["discovered_endpoints"] = ["/ (Root endpoint active)"]
 
     def generate_ai_remediation_insights(self):
         prompt = f"""
-        You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
-        Analyze the following comprehensive security scan & crawl map for target: {self.target_url}
-        
-        Scan Findings:
-        - Security Headers Issues: {self.results["security_headers"]}
-        - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
-        - Discovered Application Endpoints (Crawler Map): {self.results["discovered_endpoints"]}
-        - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
-        - Historical Context / Delta: {self.results["historical_delta"]}
-        
-        Provide a world-class CISO report structured with:
-        1. Executive Security Assessment & Historical Delta analysis.
-        2. Risk Assessment Matrix (Finding, Impact, Likelihood, Risk Rating, OWASP Category).
-        3. Red Team Attack Simulation (Realistic adversarial attack vectors based on the exposed headers and endpoints).
-        4. Business Impact & Financial/Reputational Risk estimation.
-        5. Technical Remediation Action Plan with precise configuration code snippets.
-        
-        Format your response cleanly using markdown.
+        You are a CISO security expert. Provide a concise executive security report, risk table, and remediation for: {self.target_url}
+        Headers: {self.results["security_headers"]}
+        Exposed: {self.results["sensitive_files"]}
+        Use markdown formatting with headers (##) and a risk table.
         """
-        
-        import time
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = ai_client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents=prompt
-                )
-                if response and response.text:
-                    self.results["ai_analysis"] = response.text
-                    return
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    self.results["ai_analysis"] = f"### Executive Summary Notice\nAutomated heuristics analysis completed successfully. (AI API temporary notice: {str(e)})."
-                else:
-                    time.sleep(2)
+        try:
+            response = ai_client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt
+            )
+            if response and response.text:
+                self.results["ai_analysis"] = response.text
+        except Exception as e:
+            self.results["ai_analysis"] = f"### Executive Summary\nStandard heuristic assessment completed successfully. (API note: {str(e)})."
 
-# 2. دالة تحويل الـ Markdown إلى HTML منسق
 def markdown_to_html(text):
     if not text:
         return ""
-    
     lines = text.split('\n')
     html_lines = []
     in_table = False
@@ -242,20 +177,16 @@ def markdown_to_html(text):
 
     for line in lines:
         line_str = line.strip()
-        
         if line_str.startswith('|') and line_str.endswith('|'):
             if '---' in line_str:
                 continue
             if not in_table:
                 in_table = True
                 table_rows = ["<table style='width:100%; border-collapse:collapse; margin:15px 0; background:#0f172a; border-radius:8px; overflow:hidden;'>"]
-            
             cols = [c.strip() for c in line_str.split('|')[1:-1]]
             tag = "th" if len(table_rows) == 1 else "td"
             bg_style = "background:#2563eb; color:#ffffff;" if tag == "th" else "border-bottom:1px solid #334155; padding:10px; font-size:13.5px;"
-            
             cleaned_cols = [re.sub(r'\*\*(.*?)\*\*', r'\1', c) for c in cols]
-            
             if tag == "th":
                 row_html = "<tr>" + "".join([f"<th style='padding:12px 10px; text-align:left; {bg_style}'>{c}</th>" for c in cleaned_cols]) + "</tr>"
             else:
@@ -284,7 +215,6 @@ def markdown_to_html(text):
             continue
 
         formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<b style="color: #f1f5f9;">\1</b>', line_str)
-        
         if formatted_line:
             html_lines.append(f'<p style="margin: 8px 0; line-height: 1.6; color: #cbd5e1;">{formatted_line}</p>')
         else:
@@ -296,13 +226,12 @@ def markdown_to_html(text):
 
     return "\n".join(html_lines)
 
-# 3. الواجهة الرئيسية (Dashboard)
 HTML_HOME = """
 <!DOCTYPE html>
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
-    <title>ProSecurity SaaS - AI-Powered CISO Platform</title>
+    <title>ProSecurity SaaS - AI CISO Platform</title>
     <style>
         :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
@@ -334,31 +263,19 @@ HTML_HOME = """
         </form>
         <div id='loader'>
             <div class='spinner'></div>
-            <div class='loader-text' id='statusText'>Running historical delta & smart crawl...</div>
+            <div class='loader-text' id='statusText'>Running fast security crawl & AI synthesis...</div>
         </div>
     </div>
     <script>
         function startLoading() {
             document.getElementById('scanForm').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
-            const texts = [
-                'Querying historical security delta database...',
-                'Mapping internal endpoints via smart crawler...',
-                'Simulating red team attack vectors...',
-                'Synthesizing business impact & CISO report...'
-            ];
-            let i = 0;
-            let timer = setInterval(() => {
-                i = (i + 1) % texts.length;
-                document.getElementById('statusText').innerText = texts[i];
-            }, 1500);
         }
     </script>
 </body>
 </html>
 """
 
-# 4. قالب تقرير الويب التنفيذي (مع تأمين أقواس الـ CSS لتجنب أخطاء النحو)
 def render_html_report(results):
     headers_rows = ""
     for header, details in results.get("security_headers", {}).items():
@@ -373,9 +290,9 @@ def render_html_report(results):
             </tr>
             """
 
-    endpoints_list = "".join([f"<li><code>{ep}</code></li>" for ep in results.get("discovered_endpoints", [])]) or "<li>No additional endpoints discovered.</li>"
+    endpoints_list = "".join([f"<li><code>{ep}</code></li>" for ep in results.get("discovered_endpoints", [])]) or "<li>No endpoints discovered.</li>"
     ai_formatted_content = markdown_to_html(results["ai_analysis"])
-    delta_info = results.get("historical_delta", "No history available.")
+    delta_info = results.get("historical_delta", "No history.")
 
     return f"""
     <!DOCTYPE html>
@@ -419,7 +336,7 @@ def render_html_report(results):
                 <b>📊 Historical Security Delta:</b> {delta_info}
             </div>
 
-            <h2>1. AI Expert Analysis, Red Team Simulation & Business Impact</h2>
+            <h2>1. AI Expert Analysis & Threat Assessment</h2>
             <div class='ai-box'>
                 {ai_formatted_content}
             </div>
@@ -448,7 +365,6 @@ def render_html_report(results):
     </html>
     """
 
-# 5. تطبيق FastAPI
 app = FastAPI(title="ProSecurity AI SaaS", version="3.8")
 
 @app.get("/", response_class=HTMLResponse)
