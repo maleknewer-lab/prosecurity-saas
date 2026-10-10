@@ -194,7 +194,7 @@ class AISecurityScanner:
         except Exception as e:
             self.results["discovered_endpoints"] = [f"Crawler notice: {str(e)}"]
 
-        def generate_ai_remediation_insights(self):
+    def generate_ai_remediation_insights(self):
         """الاستعلام مع نظام إعادة المحاولة التلقائية لتجنب أخطاء 503 للضغط المؤقت"""
         prompt = f"""
         You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
