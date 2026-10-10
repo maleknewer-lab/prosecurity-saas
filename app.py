@@ -11,6 +11,164 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+@app.get("/", response_class=HTMLResponse)
+async def dashboard_home():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>ProSecurity SaaS - Advanced Enterprise Scanner</title>
+        <style>
+            :root {
+                --bg-color: #0f172a;
+                --card-bg: #1e293b;
+                --accent-color: #38bdf8;
+                --accent-hover: #0ea5e9;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --border-color: #334155;
+            }
+            body {
+                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+                background-color: var(--bg-color);
+                color: var(--text-main);
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .container {
+                background: var(--card-bg);
+                width: 100%;
+                max-width: 480px;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+                border: 1px solid var(--border-color);
+                text-align: center;
+            }
+            .logo-icon {
+                font-size: 48px;
+                margin-bottom: 10px;
+            }
+            h2 {
+                color: var(--text-main);
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }
+            p {
+                color: var(--text-muted);
+                font-size: 14px;
+                margin-bottom: 30px;
+            }
+            .input-group {
+                position: relative;
+                margin-bottom: 20px;
+            }
+            input[type="text"] {
+                width: 100%;
+                padding: 14px 16px;
+                background: #0f172a;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                color: var(--text-main);
+                font-size: 15px;
+                outline: none;
+                transition: border-color 0.2s;
+                box-sizing: border-box;
+            }
+            input[type="text"]:focus {
+                border-color: var(--accent-color);
+            }
+            button {
+                width: 100%;
+                background-color: var(--accent-color);
+                color: #0f172a;
+                border: none;
+                padding: 14px;
+                font-size: 16px;
+                font-weight: 600;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background-color 0.2s, transform 0.1s;
+            }
+            button:hover {
+                background-color: var(--accent-hover);
+            }
+            button:active {
+                transform: scale(0.98);
+            }
+            /* شاشة التحميل المخفية حتى الضغط */
+            #loader {
+                display: none;
+                margin-top: 20px;
+            }
+            .spinner {
+                width: 36px;
+                height: 36px;
+                border: 3px solid var(--border-color);
+                border-top: 3px solid var(--accent-color);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 15px auto;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loader-text {
+                color: var(--accent-color);
+                font-size: 13px;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="logo-icon">🛡️</div>
+            <h2>ProSecurity SaaS</h2>
+            <p>Enterprise Vulnerability Scanner & Executive Reporting</p>
+            
+            <form id="scanForm" action="/scan" method="post" onsubmit="startLoading()">
+                <div class="input-group">
+                    <input type="text" name="target_url" placeholder="https://example.com" required autocomplete="off">
+                </div>
+                <button type="submit" id="submitBtn">Run Deep Security Audit</button>
+            </form>
+
+            <div id="loader">
+                <div class="spinner"></div>
+                <div class="loader-text" id="statusText">Initializing deep security scan...</div>
+            </div>
+        </div>
+
+        <script>
+            function startLoading() {
+                document.getElementById('scanForm').style.display = 'none';
+                document.getElementById('loader').style.display = 'block';
+                
+                // محاكاة مراحل الفحص بصرياً لجعل التجربة تفاعلية مذهلة
+                const texts = [
+                    "Analyzing HTTP security headers...",
+                    "Probing sensitive paths & API endpoints...",
+                    "Validating cookie security flags...",
+                    "Compiling executive PDF report..."
+                ];
+                let i = 0;
+                setInterval(() => {
+                    i = (i + 1) % texts.length;
+                    document.getElementById('statusText').innerText = texts[i];
+                }, 1200);
+            }
+        </script>
+    </body>
+    </html>
+    """
+    
 # 1. النواة الأساسية للفحص
 class ProfessionalSecurityScanner:
     def __init__(self, target_url):
