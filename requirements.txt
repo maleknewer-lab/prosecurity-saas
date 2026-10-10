@@ -3,4 +3,5 @@ uvicorn
 requests
 beautifulsoup4
 reportlab
-python-multipart
+google-genai
+
