@@ -6,12 +6,56 @@ from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import concurrent.futures
 import re
+import sqlite3
+import json
+from datetime import datetime
 from google import genai
 
 # تهيئة عميل الذكاء الاصطناعي
 ai_client = genai.Client()
 
-# 1. النواة الأساسية للفحص مع الزحف الذكي والتحليل
+# تهيئة قاعدة البيانات المحلية للذاكرة التاريخية والتتبع
+def init_db():
+    conn = sqlite3.connect("security_history.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target TEXT,
+            scan_date TEXT,
+            findings_summary TEXT,
+            raw_results TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def save_scan_to_history(target, findings_summary, raw_results):
+    try:
+        conn = sqlite3.connect("security_history.db")
+        cursor = conn.cursor()
+        scan_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO scans (target, scan_date, findings_summary, raw_results) VALUES (?, ?, ?, ?)",
+                       (target, scan_date, findings_summary, json.dumps(raw_results)))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DB Error: {e}")
+
+def get_previous_scan(target):
+    try:
+        conn = sqlite3.connect("security_history.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT scan_date, findings_summary FROM scans WHERE target = ? ORDER BY id DESC LIMIT 1 OFFSET 1", (target,))
+        row = cursor.fetchone()
+        conn.close()
+        return row if row else None
+    except:
+        return None
+
+# 1. النواة الأساسية للفحص مع الذاكرة التاريخية والزحف الذكي
 class AISecurityScanner:
     def __init__(self, target_url):
         self.target_url = target_url.rstrip('/')
@@ -19,7 +63,7 @@ class AISecurityScanner:
         self.domain = self.parsed_url.netloc
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-Crawler-3.8"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-Autonomous-3.8"
         })
         self.results = {
             "target": self.target_url,
@@ -27,7 +71,8 @@ class AISecurityScanner:
             "sensitive_files": [],
             "discovered_endpoints": [],
             "potential_vulnerabilities": [],
-            "ai_analysis": "Analyzing target architecture and crawl map..."
+            "historical_delta": None,
+            "ai_analysis": "Analyzing target architecture, threat matrix and business impact..."
         }
 
     def run_full_scan(self):
@@ -35,8 +80,19 @@ class AISecurityScanner:
         self.check_sensitive_files()
         self.check_cookie_security()
         self.check_advanced_sensitive_paths()
-        self.smart_web_crawler()  # تشغيل الزاحف الذكي لاستخراج الروابط
+        self.smart_web_crawler()
+        
+        # استرجاع الفحص السابق للمقارنة (Delta Tracking)
+        prev_scan = get_previous_scan(self.target_url)
+        if prev_scan:
+            self.results["historical_delta"] = f"Previous audit recorded on {prev_scan[0]}: {prev_scan[1]}"
+        else:
+            self.results["historical_delta"] = "First recorded security baseline audit for this target."
+
         self.generate_ai_remediation_insights()
+        
+        # حفظ الفحص الحالي في قاعدة البيانات
+        save_scan_to_history(self.target_url, "Standard CISO Assessment completed.", self.results)
         return self.results
 
     def check_security_headers(self):
@@ -118,43 +174,48 @@ class AISecurityScanner:
                     self.results["sensitive_files"].append(res)
 
     def smart_web_crawler(self):
-        """زاحف ذكي لاستخراج روابط ونقاط النهاية (Endpoints) الداخلية للموقع"""
         try:
             response = self.session.get(self.target_url, timeout=10)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 found_links = set()
                 
-                for a_tag in soup.find_all('href', href=True) or soup.find_all('a', href=True):
+                for a_tag in soup.find_all('a', href=True):
                     link = a_tag.get('href')
                     absolute_url = urljoin(self.target_url, link)
                     parsed_link = urlparse(absolute_url)
                     
-                    # التحقق من أن الرابط يتبع نفس النطاق ولا يشمل روابط خارجية أو ملفات وسائط
                     if parsed_link.netloc == self.domain:
                         clean_path = parsed_link.path or "/"
                         if not any(clean_path.endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.svg', '.ico']):
                             found_links.add(clean_path)
                 
-                # تقييد الحد الأقصى للروابط لضمان سرعة الاستجابة
                 self.results["discovered_endpoints"] = list(found_links)[:15]
         except Exception as e:
-            self.results["discovered_endpoints"] = [f"Crawler warning: {str(e)}"]
+            self.results["discovered_endpoints"] = [f"Crawler notice: {str(e)}"]
 
     def generate_ai_remediation_insights(self):
-        """الاستعلام مع تمرير خريطة المسارات المكتشفة بواسطة الزاحف الذكي"""
+        """الاستعلام مع دمج محاكاة الهجمات (Red Teaming) والتقييم التجاري والمالي (Business Impact)"""
         try:
             prompt = f"""
-            You are an elite Chief Information Security Officer (CISO) and AI security expert.
-            Analyze the following comprehensive security scan & crawl map results for the target: {self.target_url}
+            You are an elite Chief Information Security Officer (CISO), Red Team Lead, and Risk Analyst.
+            Analyze the following comprehensive security scan & crawl map for target: {self.target_url}
             
             Scan Findings:
             - Security Headers Issues: {self.results["security_headers"]}
             - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
             - Discovered Application Endpoints (Crawler Map): {self.results["discovered_endpoints"]}
             - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
+            - Historical Context / Delta: {self.results["historical_delta"]}
             
-            Provide a professional executive security summary, risk assessment matrix based on the endpoints and headers, and specific technical remediation steps including code snippets to fix these issues. Format your response cleanly using markdown.
+            Provide a world-class CISO report structured with:
+            1. Executive Security Assessment & Historical Delta analysis.
+            2. Risk Assessment Matrix (Finding, Impact, Likelihood, Risk Rating, OWASP Category).
+            3. Red Team Attack Simulation (Realistic adversarial attack vectors based on the exposed headers and endpoints).
+            4. Business Impact & Financial/Reputational Risk estimation.
+            5. Technical Remediation Action Plan with precise configuration code snippets.
+            
+            Format your response cleanly using markdown.
             """
             
             response = ai_client.models.generate_content(
@@ -166,7 +227,7 @@ class AISecurityScanner:
         except Exception as e:
             self.results["ai_analysis"] = f"Executive security summary generated via advanced heuristics. (API notice: {str(e)})"
 
-# 2. دالة تحويل الـ Markdown إلى HTML منسق وأنيق
+# 2. دالة تحويل الـ Markdown إلى HTML منسق
 def markdown_to_html(text):
     if not text:
         return ""
@@ -238,7 +299,7 @@ HTML_HOME = """
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
-    <title>ProSecurity SaaS - AI-Powered Scanner</title>
+    <title>ProSecurity SaaS - AI-Powered CISO Platform</title>
     <style>
         :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
@@ -260,17 +321,17 @@ HTML_HOME = """
 <body>
     <div class='container'>
         <div class='logo-icon'>🤖🛡️</div>
-        <h2>ProSecurity AI SaaS</h2>
-        <p>Autonomous Vulnerability Scanner & AI CISO Reporting</p>
+        <h2>ProSecurity Autonomous AI</h2>
+        <p>CISO Executive Platform & Red Team Simulator</p>
         <form id='scanForm' action='/scan' method='post' onsubmit='startLoading()'>
             <div class='input-group'>
                 <input type='text' name='target_url' placeholder='https://example.com' required autocomplete='off'>
             </div>
-            <button type='submit'>Run AI Security Audit</button>
+            <button type='submit'>Run Autonomous CISO Audit</button>
         </form>
         <div id='loader'>
             <div class='spinner'></div>
-            <div class='loader-text' id='statusText'>Smart Crawler mapping target endpoints...</div>
+            <div class='loader-text' id='statusText'>Running historical delta & smart crawl...</div>
         </div>
     </div>
     <script>
@@ -278,10 +339,10 @@ HTML_HOME = """
             document.getElementById('scanForm').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
             const texts = [
-                'Crawling internal links and routes...',
-                'Probing security headers and endpoints...',
-                'Evaluating threat matrix with AI CISO...',
-                'Rendering Executive Web Report...'
+                'Querying historical security delta database...',
+                'Mapping internal endpoints via smart crawler...',
+                'Simulating red team attack vectors...',
+                'Synthesizing business impact & CISO report...'
             ];
             let i = 0;
             let timer = setInterval(() => {
@@ -294,7 +355,7 @@ HTML_HOME = """
 </html>
 """
 
-# 4. قالب تقرير الويب التنفيذي الاحترافي
+# 4. قالب تقرير الويب التنفيذي
 def render_html_report(results):
     headers_rows = ""
     for header, details in results.get("security_headers", {}).items():
@@ -311,18 +372,20 @@ def render_html_report(results):
 
     endpoints_list = "".join([f"<li><code>{ep}</code></li>" for ep in results.get("discovered_endpoints", [])]) or "<li>No additional endpoints discovered.</li>"
     ai_formatted_content = markdown_to_html(results["ai_analysis"])
+    delta_info = results.get("historical_delta", "No history available.")
 
     return f"""
     <!DOCTYPE html>
     <html lang='en'>
     <head>
         <meta charset='UTF-8'>
-        <title>AI-Driven Executive Security Report</title>
+        <title>Autonomous AI CISO Executive Report</title>
         <style>
             body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }}
             .report-container {{ max-width: 950px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }}
             h1 {{ color: #38bdf8; text-align: center; margin-bottom: 5px; }}
-            .target-sub {{ text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 16px; }}
+            .target-sub {{ text-align: center; color: #94a3b8; margin-bottom: 20px; font-size: 16px; }}
+            .delta-banner {{ background: #0f172a; border-left: 4px solid #f59e0b; padding: 12px 16px; margin-bottom: 25px; border-radius: 6px; font-size: 13.5px; color: #cbd5e1; }}
             h2 {{ color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 35px; }}
             .ai-box {{ background: #0f172a; padding: 25px; border-radius: 12px; border-left: 4px solid #38bdf8; line-height: 1.6; font-size: 14.5px; color: #e2e8f0; }}
             .endpoints-box {{ background: #0f172a; padding: 15px 25px; border-radius: 8px; border: 1px solid #334155; margin-top: 15px; max-height: 180px; overflow-y: auto; }}
@@ -346,10 +409,14 @@ def render_html_report(results):
     </head>
     <body>
         <div class='report-container'>
-            <h1>AI-Driven Executive Security Report</h1>
+            <h1>Autonomous AI CISO Executive Report</h1>
             <div class='target-sub'>Target System: <b>{results['target']}</b></div>
+            
+            <div class='delta-banner'>
+                <b>📊 Historical Security Delta:</b> {delta_info}
+            </div>
 
-            <h2>1. AI Security Expert Analysis & Remediation</h2>
+            <h2>1. AI Expert Analysis, Red Team Simulation & Business Impact</h2>
             <div class='ai-box'>
                 {ai_formatted_content}
             </div>
