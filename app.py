@@ -11,21 +11,23 @@ from google import genai
 # تهيئة عميل الذكاء الاصطناعي
 ai_client = genai.Client()
 
-# 1. النواة الأساسية للفحص مع التحليل الذكي
+# 1. النواة الأساسية للفحص مع الزحف الذكي والتحليل
 class AISecurityScanner:
     def __init__(self, target_url):
         self.target_url = target_url.rstrip('/')
         self.parsed_url = urlparse(target_url)
+        self.domain = self.parsed_url.netloc
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-3.8"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ProSecurityScanner/AI-Crawler-3.8"
         })
         self.results = {
             "target": self.target_url,
             "security_headers": {},
             "sensitive_files": [],
+            "discovered_endpoints": [],
             "potential_vulnerabilities": [],
-            "ai_analysis": "Analyzing target security posture..."
+            "ai_analysis": "Analyzing target architecture and crawl map..."
         }
 
     def run_full_scan(self):
@@ -33,6 +35,7 @@ class AISecurityScanner:
         self.check_sensitive_files()
         self.check_cookie_security()
         self.check_advanced_sensitive_paths()
+        self.smart_web_crawler()  # تشغيل الزاحف الذكي لاستخراج الروابط
         self.generate_ai_remediation_insights()
         return self.results
 
@@ -114,19 +117,44 @@ class AISecurityScanner:
                 if res:
                     self.results["sensitive_files"].append(res)
 
+    def smart_web_crawler(self):
+        """زاحف ذكي لاستخراج روابط ونقاط النهاية (Endpoints) الداخلية للموقع"""
+        try:
+            response = self.session.get(self.target_url, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                found_links = set()
+                
+                for a_tag in soup.find_all('href', href=True) or soup.find_all('a', href=True):
+                    link = a_tag.get('href')
+                    absolute_url = urljoin(self.target_url, link)
+                    parsed_link = urlparse(absolute_url)
+                    
+                    # التحقق من أن الرابط يتبع نفس النطاق ولا يشمل روابط خارجية أو ملفات وسائط
+                    if parsed_link.netloc == self.domain:
+                        clean_path = parsed_link.path or "/"
+                        if not any(clean_path.endswith(ext) for ext in ['.jpg', '.png', '.css', '.js', '.svg', '.ico']):
+                            found_links.add(clean_path)
+                
+                # تقييد الحد الأقصى للروابط لضمان سرعة الاستجابة
+                self.results["discovered_endpoints"] = list(found_links)[:15]
+        except Exception as e:
+            self.results["discovered_endpoints"] = [f"Crawler warning: {str(e)}"]
+
     def generate_ai_remediation_insights(self):
-        """الاستعلام باستخدام النموذج الأحدث والمستقر gemini-3.8-flash"""
+        """الاستعلام مع تمرير خريطة المسارات المكتشفة بواسطة الزاحف الذكي"""
         try:
             prompt = f"""
             You are an elite Chief Information Security Officer (CISO) and AI security expert.
-            Analyze the following security scan results for the target: {self.target_url}
+            Analyze the following comprehensive security scan & crawl map results for the target: {self.target_url}
             
             Scan Findings:
             - Security Headers Issues: {self.results["security_headers"]}
             - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
+            - Discovered Application Endpoints (Crawler Map): {self.results["discovered_endpoints"]}
             - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
             
-            Provide a professional executive security summary, risk assessment matrix, and specific technical remediation steps including code snippets to fix these issues. Format your response clearly using markdown.
+            Provide a professional executive security summary, risk assessment matrix based on the endpoints and headers, and specific technical remediation steps including code snippets to fix these issues. Format your response cleanly using markdown.
             """
             
             response = ai_client.models.generate_content(
@@ -151,10 +179,9 @@ def markdown_to_html(text):
     for line in lines:
         line_str = line.strip()
         
-        # معالجة جداول الماركداون وتحويلها إلى عناصر جدول HTML حقيقية
         if line_str.startswith('|') and line_str.endswith('|'):
             if '---' in line_str:
-                continue # تخطي خط الفصل الفاصل بين الهيدر والمحتوى
+                continue
             if not in_table:
                 in_table = True
                 table_rows = ["<table style='width:100%; border-collapse:collapse; margin:15px 0; background:#0f172a; border-radius:8px; overflow:hidden;'>"]
@@ -162,10 +189,13 @@ def markdown_to_html(text):
             cols = [c.strip() for c in line_str.split('|')[1:-1]]
             tag = "th" if len(table_rows) == 1 else "td"
             bg_style = "background:#2563eb; color:#ffffff;" if tag == "th" else "border-bottom:1px solid #334155; padding:10px; font-size:13.5px;"
+            
+            cleaned_cols = [re.sub(r'\*\*(.*?)\*\*', r'\1', c) for c in cols]
+            
             if tag == "th":
-                row_html = "<tr>" + "".join([f"<th style='padding:12px 10px; text-align:left; {bg_style}'>{c}</th>" for c in cols]) + "</tr>"
+                row_html = "<tr>" + "".join([f"<th style='padding:12px 10px; text-align:left; {bg_style}'>{c}</th>" for c in cleaned_cols]) + "</tr>"
             else:
-                row_html = "<tr>" + "".join([f"<td style='{bg_style}'>{c}</td>" for c in cols]) + "</tr>"
+                row_html = "<tr>" + "".join([f"<td style='{bg_style}'>{c}</td>" for c in cleaned_cols]) + "</tr>"
             table_rows.append(row_html)
             continue
         else:
@@ -175,12 +205,10 @@ def markdown_to_html(text):
                 in_table = False
                 table_rows = []
 
-        # معالجة الخطوط الفاصلة
         if line_str in ['---', '___', '***']:
             html_lines.append('<hr style="border: 0; height: 1px; background: #334155; margin: 25px 0;">')
             continue
 
-        # معالجة العناوين
         if line_str.startswith('### '):
             html_lines.append(f'<h4 style="color: #38bdf8; margin-top: 20px; font-size: 16px;">{line_str[4:]}</h4>')
             continue
@@ -191,7 +219,6 @@ def markdown_to_html(text):
             html_lines.append(f'<h2 style="color: #38bdf8; margin-top: 30px; font-size: 20px;">{line_str[2:]}</h2>')
             continue
 
-        # معالجة النصوص العريضة **text**
         formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<b style="color: #f1f5f9;">\1</b>', line_str)
         
         if formatted_line:
@@ -243,7 +270,7 @@ HTML_HOME = """
         </form>
         <div id='loader'>
             <div class='spinner'></div>
-            <div class='loader-text' id='statusText'>Gemini is analyzing target architecture...</div>
+            <div class='loader-text' id='statusText'>Smart Crawler mapping target endpoints...</div>
         </div>
     </div>
     <script>
@@ -251,10 +278,10 @@ HTML_HOME = """
             document.getElementById('scanForm').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
             const texts = [
+                'Crawling internal links and routes...',
                 'Probing security headers and endpoints...',
-                'Evaluating threat matrix with AI...',
-                'Synthesizing remediation code patches...',
-                'Rendering Executive CISO Web Report...'
+                'Evaluating threat matrix with AI CISO...',
+                'Rendering Executive Web Report...'
             ];
             let i = 0;
             let timer = setInterval(() => {
@@ -282,7 +309,7 @@ def render_html_report(results):
             </tr>
             """
 
-    # تحليل وعرض نصوص الذكاء الاصطناعي بشكل منسق وعصري
+    endpoints_list = "".join([f"<li><code>{ep}</code></li>" for ep in results.get("discovered_endpoints", [])]) or "<li>No additional endpoints discovered.</li>"
     ai_formatted_content = markdown_to_html(results["ai_analysis"])
 
     return f"""
@@ -298,6 +325,9 @@ def render_html_report(results):
             .target-sub {{ text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 16px; }}
             h2 {{ color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 35px; }}
             .ai-box {{ background: #0f172a; padding: 25px; border-radius: 12px; border-left: 4px solid #38bdf8; line-height: 1.6; font-size: 14.5px; color: #e2e8f0; }}
+            .endpoints-box {{ background: #0f172a; padding: 15px 25px; border-radius: 8px; border: 1px solid #334155; margin-top: 15px; max-height: 180px; overflow-y: auto; }}
+            .endpoints-box ul {{ margin: 0; padding-left: 20px; color: #38bdf8; }}
+            .endpoints-box li {{ margin: 4px 0; font-size: 13.5px; color: #94a3b8; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; border-radius: 8px; overflow: hidden; }}
             th, td {{ padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }}
             th {{ background: #2563eb; color: #ffffff; }}
@@ -324,7 +354,14 @@ def render_html_report(results):
                 {ai_formatted_content}
             </div>
 
-            <h2>2. Security Headers Analysis</h2>
+            <h2>2. Smart Crawler Discovered Endpoints</h2>
+            <div class='endpoints-box'>
+                <ul>
+                    {endpoints_list}
+                </ul>
+            </div>
+
+            <h2>3. Security Headers Analysis</h2>
             <table>
                 <tr>
                     <th>Header Name</th>
