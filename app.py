@@ -1,15 +1,10 @@
 from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse
 import os
 import requests
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import concurrent.futures
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 from google import genai
 
 # تهيئة عميل الذكاء الاصطناعي
@@ -130,7 +125,7 @@ class AISecurityScanner:
             - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
             - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
             
-            Provide a concise, professional executive security summary, risk assessment, and specific technical remediation steps (including code snippets) to fix these issues. Avoid using complex markdown tables.
+            Provide a professional executive security summary, risk assessment, and specific technical remediation steps including code snippets to fix these issues. Format your response cleanly.
             """
             
             response = ai_client.models.generate_content(
@@ -140,162 +135,158 @@ class AISecurityScanner:
             if response and response.text:
                 self.results["ai_analysis"] = response.text
         except Exception as e:
-            self.results["ai_analysis"] = f"Executive security summary generated via advanced automated heuristics. (API notice: {str(e)})"
+            self.results["ai_analysis"] = f"Executive security summary generated via advanced heuristics. (API notice: {str(e)})"
 
-    def export_pdf_report(self, buffer):
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-        story = []
-        styles = getSampleStyleSheet()
-        
-        title_style = ParagraphStyle('ExecTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor("#1A365D"), spaceAfter=15, alignment=1)
-        subtitle_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor("#4A5568"), spaceAfter=25, alignment=1)
-        heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor("#2B6CB0"), spaceBefore=15, spaceAfter=10)
-        body_style = ParagraphStyle('BodyTextCustom', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#2D3748"), leading=14)
+# 2. الواجهة الرئيسية (Dashboard)
+HTML_HOME = """
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <title>ProSecurity SaaS - AI-Powered Scanner</title>
+    <style>
+        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { background: var(--card-bg); width: 100%; max-width: 480px; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); text-align: center; }
+        .logo-icon { font-size: 48px; margin-bottom: 10px; }
+        h2 { color: var(--text-main); font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        p { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }
+        .input-group { margin-bottom: 20px; }
+        input[type='text'] { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 15px; outline: none; box-sizing: border-box; }
+        input[type='text']:focus { border-color: var(--accent-color); }
+        button { width: 100%; background-color: var(--accent-color); color: #0f172a; border: none; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+        button:hover { background-color: var(--accent-hover); }
+        #loader { display: none; margin-top: 20px; }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top: 3px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loader-text { color: var(--accent-color); font-size: 13px; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='logo-icon'>🤖🛡️</div>
+        <h2>ProSecurity AI SaaS</h2>
+        <p>Autonomous Vulnerability Scanner & AI CISO Reporting</p>
+        <form id='scanForm' action='/scan' method='post' onsubmit='startLoading()'>
+            <div class='input-group'>
+                <input type='text' name='target_url' placeholder='https://example.com' required autocomplete='off'>
+            </div>
+            <button type='submit'>Run AI Security Audit</button>
+        </form>
+        <div id='loader'>
+            <div class='spinner'></div>
+            <div class='loader-text' id='statusText'>Gemini is analyzing target architecture...</div>
+        </div>
+    </div>
+    <script>
+        function startLoading() {
+            document.getElementById('scanForm').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+            const texts = [
+                'Probing security headers and endpoints...',
+                'Evaluating threat matrix with AI...',
+                'Synthesizing remediation code patches...',
+                'Rendering Executive CISO Web Report...'
+            ];
+            let i = 0;
+            let timer = setInterval(() => {
+                i = (i + 1) % texts.length;
+                document.getElementById('statusText').innerText = texts[i];
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
+"""
 
-        story.append(Paragraph("AI-Driven Executive Security Report", title_style))
-        story.append(Paragraph(f"Target System: <b>{self.target_url}</b>", subtitle_style))
-        story.append(Spacer(1, 10))
+# 3. قالب تقرير الويب التنفيذي الاحترافي
+def render_html_report(results):
+    headers_rows = ""
+    for header, details in results.get("security_headers", {}).items():
+        if header != "error":
+            status_color = "#10b981" if details.get("status") == "Present" else "#f59e0b"
+            headers_rows += f"""
+            <tr>
+                <td><b>{header}</b></td>
+                <td><span style="color: {status_color}; font-weight: 600;">{details.get("status")}</span></td>
+                <td>{details.get("risk")}</td>
+                <td>{details.get("description")}</td>
+            </tr>
+            """
 
-        # قسم تحليل الذكاء الاصطناعي مع تنظيف شامل لجميع رموز الـ Markdown غير المدعومة
-        story.append(Paragraph("1. AI Security Expert Analysis & Remediation", heading_style))
-        
-        raw_ai_text = self.results["ai_analysis"]
-        cleaned_text = (
-            raw_ai_text
-            .replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('**', '<b>')         # تحويل النجوم الثنائية إلى خط عريض
-            .replace('---', '<br/>')      # إزالة الخطوط الفاصلة
-            .replace('___', '<br/>')
-            .replace('|', ' - ')          # تحويل الجداول إلى نص عادي مرتب
-            .replace('\n', '<br/>')
-        )
-        
-        story.append(Paragraph(cleaned_text, body_style))
-        story.append(Spacer(1, 15))
+    # تنسيق تحليل الذكاء الاصطناعي ليعرض بشكل فقرات نظيفة
+    ai_content = results["ai_analysis"].replace('\n', '<br>')
 
-        # جدول ترويسات الأمان
-        story.append(Paragraph("2. Security Headers Analysis", heading_style))
-        headers_data = [["Header Name", "Status", "Risk", "Description"]]
-        for header, details in self.results.get("security_headers", {}).items():
-            if header != "error":
-                headers_data.append([
-                    header, 
-                    details.get("status", "Unknown"), 
-                    details.get("risk", "Low"), 
-                    details.get("description", "Standard audit")
-                ])
-        
-        if len(headers_data) > 1:
-            t = Table(headers_data, colWidths=[110, 60, 60, 270])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2B6CB0")),
-                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-                ('BOTTOMPADDING', (0,0), (-1,0), 8),
-                ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#F7FAFC")),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-                ('FONTSIZE', (0,0), (-1,-1), 8.5),
-            ]))
-            story.append(t)
-            
-        doc.build(story)
+    return f"""
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <title>AI-Driven Executive Security Report</title>
+        <style>
+            body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }}
+            .report-container {{ max-width: 900px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }}
+            h1 {{ color: #38bdf8; text-align: center; margin-bottom: 5px; }}
+            .target-sub {{ text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 16px; }}
+            h2 {{ color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 30px; }}
+            .ai-box {{ background: #0f172a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8; line-height: 1.6; font-size: 14.5px; color: #e2e8f0; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; border-radius: 8px; overflow: hidden; }}
+            th, td {{ padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }}
+            th {{ background: #2563eb; color: #ffffff; }}
+            tr:hover {{ background: #1e293b; }}
+            .print-btn {{ display: block; width: 200px; margin: 30px auto 0 auto; background: #38bdf8; color: #0f172a; border: none; padding: 12px; font-weight: 600; font-size: 16px; border-radius: 8px; cursor: pointer; text-align: center; text-decoration: none; }}
+            .print-btn:hover {{ background: #0ea5e9; }}
+            @media print {{
+                body {{ background: #ffffff; color: #000000; padding: 0; }}
+                .report-container {{ border: none; box-shadow: none; background: #ffffff; }}
+                .ai-box {{ background: #f8fafc; color: #000000; border-left: 4px solid #2563eb; }}
+                table {{ background: #ffffff; color: #000000; }}
+                th {{ background: #2563eb !important; color: #ffffff !important; }}
+                .print-btn {{ display: none; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class='report-container'>
+            <h1>AI-Driven Executive Security Report</h1>
+            <div class='target-sub'>Target System: <b>{results['target']}</b></div>
 
-# 2. قالب الواجهة العصرية
-HTML_TEMPLATE = (
-    "<!DOCTYPE html>\n"
-    "<html lang='en'>\n"
-    "<head>\n"
-    "    <meta charset='UTF-8'>\n"
-    "    <title>ProSecurity SaaS - AI-Powered Scanner</title>\n"
-    "    <style>\n"
-    "        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }\n"
-    "        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }\n"
-    "        .container { background: var(--card-bg); width: 100%; max-width: 480px; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); text-align: center; }\n"
-    "        .logo-icon { font-size: 48px; margin-bottom: 10px; }\n"
-    "        h2 { color: var(--text-main); font-size: 24px; font-weight: 600; margin-bottom: 8px; }\n"
-    "        p { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }\n"
-    "        .input-group { margin-bottom: 20px; }\n"
-    "        input[type='text'] { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 15px; outline: none; box-sizing: border-box; }\n"
-    "        input[type='text']:focus { border-color: var(--accent-color); }\n"
-    "        button { width: 100%; background-color: var(--accent-color); color: #0f172a; border: none; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; }\n"
-    "        button:hover { background-color: var(--accent-hover); }\n"
-    "        #loader { display: none; margin-top: 20px; }\n"
-    "        .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top: 3px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }\n"
-    "        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }\n"
-    "        .loader-text { color: var(--accent-color); font-size: 13px; font-weight: 500; }\n"
-    "    </style>\n"
-    "</head>\n"
-    "<body>\n"
-    "    <div class='container'>\n"
-    "        <div class='logo-icon'>🤖🛡️</div>\n"
-    "        <h2>ProSecurity AI SaaS</h2>\n"
-    "        <p>Autonomous Vulnerability Scanner & AI CISO Reporting</p>\n"
-    "        <form id='scanForm' action='/scan' method='post' onsubmit='startLoading()'>\n"
-    "            <div class='input-group'>\n"
-    "                <input type='text' name='target_url' placeholder='https://example.com' required autocomplete='off'>\n"
-    "            </div>\n"
-    "            <button type='submit'>Run AI Security Audit</button>\n"
-    "        </form>\n"
-    "        <div id='loader'>\n"
-    "            <div class='spinner'></div>\n"
-    "            <div class='loader-text' id='statusText'>Gemini is analyzing target architecture...</div>\n"
-    "        </div>\n"
-    "    </div>\n"
-    "    <script>\n"
-    "        function startLoading() {\n"
-    "            document.getElementById('scanForm').style.display = 'none';\n"
-    "            document.getElementById('loader').style.display = 'block';\n"
-    "            const texts = [\n"
-    "                'Probing security headers and endpoints...',\n"
-    "                'Evaluating threat matrix with AI...',\n"
-    "                'Synthesizing remediation code patches...',\n"
-    "                'Compiling executive AI-CISO PDF report...'\n"
-    "            ];\n"
-    "            let i = 0;\n"
-    "            let timer = setInterval(() => {\n"
-    "                i = (i + 1) % texts.length;\n"
-    "                document.getElementById('statusText').innerText = texts[i];\n"
-    "            }, 1500);\n"
-    "            \n"
-    "            setTimeout(() => {\n"
-    "                clearInterval(timer);\n"
-    "                document.getElementById('loader').style.display = 'none';\n"
-    "                document.getElementById('scanForm').reset();\n"
-    "                document.getElementById('scanForm').style.display = 'block';\n"
-    "            }, 6000);\n"
-    "        }\n"
-    "    </script>\n"
-    "</body>\n"
-    "</html>\n"
-)
+            <h2>1. AI Security Expert Analysis & Remediation</h2>
+            <div class='ai-box'>
+                {ai_content}
+            </div>
 
-# 3. تطبيق FastAPI
+            <h2>2. Security Headers Analysis</h2>
+            <table>
+                <tr>
+                    <th>Header Name</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                    <th>Description</th>
+                </tr>
+                {headers_rows}
+            </table>
+
+            <button class='print-btn' onclick='window.print()'>Print / Save PDF</button>
+        </div>
+    </body>
+    </html>
+    """
+
+# 4. تطبيق FastAPI
 app = FastAPI(title="ProSecurity AI SaaS", version="3.8")
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_home():
-    return HTMLResponse(content=HTML_TEMPLATE)
+    return HTMLResponse(content=HTML_HOME)
 
-@app.post("/scan", response_class=StreamingResponse)
+@app.post("/scan", response_class=HTMLResponse)
 async def run_scan_endpoint(target_url: str = Form(...)):
     try:
         scanner = AISecurityScanner(target_url)
-        scanner.run_full_scan()
-        
-        pdf_buffer = BytesIO()
-        scanner.export_pdf_report(pdf_buffer)
-        pdf_buffer.seek(0)
-        
-        filename = f"AI_Security_Report_{abs(hash(target_url))}.pdf"
-        
-        return StreamingResponse(
-            pdf_buffer, 
-            media_type="application/pdf", 
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
+        results = scanner.run_full_scan()
+        html_output = render_html_report(results)
+        return HTMLResponse(content=html_output)
     except Exception as e:
         return HTMLResponse(content=f"<h3 style='color:red; text-align:center; margin-top:20vh;'>Scan Error: {str(e)}</h3>", status_code=500)
 
