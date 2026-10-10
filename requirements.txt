@@ -4,4 +4,4 @@ requests
 beautifulsoup4
 reportlab
 google-genai
-
+python-multipart
