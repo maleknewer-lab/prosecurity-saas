@@ -57,7 +57,7 @@ class ProfessionalSecurityScanner:
 
     def check_sensitive_files(self):
         common_paths = [
-            ".env", "robots.txt", ".git/HEAD", "config.json",
+            ".env", "robots.txt", ".git/HEAD", "config.json", 
             "backend/config.py", "backup.zip", "package.json", "api/swagger.json"
         ]
         def test_path(path):
@@ -97,7 +97,7 @@ class ProfessionalSecurityScanner:
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
         story = []
         styles = getSampleStyleSheet()
-
+        
         title_style = ParagraphStyle('ExecTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor("#1A365D"), spaceAfter=15, alignment=1)
         subtitle_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor("#4A5568"), spaceAfter=25, alignment=1)
         heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor("#2B6CB0"), spaceBefore=15, spaceAfter=10)
@@ -106,18 +106,17 @@ class ProfessionalSecurityScanner:
         story.append(Paragraph(f"Target System: <b>{self.target_url}</b>", subtitle_style))
         story.append(Spacer(1, 10))
 
-        # جدول ترويسات الأمان
         story.append(Paragraph("1. Security Headers Analysis", heading_style))
         headers_data = [["Header Name", "Status", "Risk", "Description"]]
         for header, details in self.results.get("security_headers", {}).items():
             if header != "error":
                 headers_data.append([
-                    header,
-                    details.get("status", "Unknown"),
-                    details.get("risk", "Low"),
+                    header, 
+                    details.get("status", "Unknown"), 
+                    details.get("risk", "Low"), 
                     details.get("description", "Standard audit")
                 ])
-
+        
         if len(headers_data) > 1:
             t = Table(headers_data, colWidths=[110, 60, 60, 270])
             t.setStyle(TableStyle([
@@ -131,15 +130,14 @@ class ProfessionalSecurityScanner:
                 ('FONTSIZE', (0,0), (-1,-1), 8.5),
             ]))
             story.append(t)
-
+            
         story.append(Spacer(1, 10))
 
-        # جدول الملفات والمسارات الحساسة المكشوفة
         story.append(Paragraph("2. Sensitive Files & Exposed Endpoints", heading_style))
         sensitive_data = [["Path Found", "Full URL", "Status Code"]]
         for item in self.results.get("sensitive_files", []):
             sensitive_data.append([item["path"], item["url"], str(item["status_code"])])
-
+            
         if len(sensitive_data) > 1:
             t2 = Table(sensitive_data, colWidths=[120, 300, 80])
             t2.setStyle(TableStyle([
@@ -154,10 +152,10 @@ class ProfessionalSecurityScanner:
             story.append(t2)
         else:
             story.append(Paragraph("No sensitive files or public endpoints exposed.", styles['Normal']))
-
+        
         doc.build(story)
 
-# 2. الكلاس المتقدم (يشمل فحص الكوكيز والمسارات المتقدمة)
+# 2. الكلاس المتقدم
 class AdvancedSecurityScanner(ProfessionalSecurityScanner):
     def __init__(self, target_url):
         super().__init__(target_url)
@@ -173,25 +171,18 @@ class AdvancedSecurityScanner(ProfessionalSecurityScanner):
             response = self.session.get(self.target_url, timeout=10)
             cookies = response.cookies
             for cookie in cookies:
-                cookie_issues = []
                 if not cookie.secure:
-                    cookie_issues.append("Missing 'Secure' flag")
-                if cookie_issues:
                     self.results["potential_vulnerabilities"].append({
                         "type": "Insecure Cookie Configuration",
                         "cookie_name": cookie.name,
-                        "issues": cookie_issues,
                         "risk": "Medium",
-                        "description": f"The cookie '{cookie.name}' lacks critical security flags."
+                        "description": f"The cookie '{cookie.name}' lacks the Secure flag."
                     })
         except:
             pass
 
     def check_advanced_sensitive_paths(self):
-        advanced_paths = [
-            "swagger/index.html", "api-docs", "graphql",
-            "phpmyadmin", "server-status", ".well-known/security.txt"
-        ]
+        advanced_paths = ["swagger/index.html", "api-docs", "graphql", "phpmyadmin", "server-status"]
         def test_advanced_path(path):
             full_url = urljoin(self.target_url + "/", path)
             try:
@@ -209,103 +200,93 @@ class AdvancedSecurityScanner(ProfessionalSecurityScanner):
                 if res:
                     self.results["sensitive_files"].append(res)
 
-# 3. تطبيق FastAPI مع واجهة مستخدم بصرية حديثة
+# 3. قالب الـ HTML (بدون استخدام تداخل ت్రిple quotes)
+HTML_TEMPLATE = (
+    "<!DOCTYPE html>\n"
+    "<html lang='en'>\n"
+    "<head>\n"
+    "    <meta charset='UTF-8'>\n"
+    "    <title>ProSecurity SaaS - Advanced Enterprise Scanner</title>\n"
+    "    <style>\n"
+    "        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }\n"
+    "        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }\n"
+    "        .container { background: var(--card-bg); width: 100%; max-width: 480px; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); text-align: center; }\n"
+    "        .logo-icon { font-size: 48px; margin-bottom: 10px; }\n"
+    "        h2 { color: var(--text-main); font-size: 24px; font-weight: 600; margin-bottom: 8px; }\n"
+    "        p { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }\n"
+    "        .input-group { margin-bottom: 20px; }\n"
+    "        input[type='text'] { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 15px; outline: none; box-sizing: border-box; }\n"
+    "        input[type='text']:focus { border-color: var(--accent-color); }\n"
+    "        button { width: 100%; background-color: var(--accent-color); color: #0f172a; border: none; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; }\n"
+    "        button:hover { background-color: var(--accent-hover); }\n"
+    "        #loader { display: none; margin-top: 20px; }\n"
+    "        .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top: 3px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }\n"
+    "        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }\n"
+    "        .loader-text { color: var(--accent-color); font-size: 13px; font-weight: 500; }\n"
+    "    </style>\n"
+    "</head>\n"
+    "<body>\n"
+    "    <div class='container'>\n"
+    "        <div class='logo-icon'>🛡️</div>\n"
+    "        <h2>ProSecurity SaaS</h2>\n"
+    "        <p>Enterprise Vulnerability Scanner & Executive Reporting</p>\n"
+    "        <form id='scanForm' action='/scan' method='post' onsubmit='startLoading()'>\n"
+    "            <div class='input-group'>\n"
+    "                <input type='text' name='target_url' placeholder='https://example.com' required autocomplete='off'>\n"
+    "            </div>\n"
+    "            <button type='submit'>Run Deep Security Audit</button>\n"
+    "        </form>\n"
+    "        <div id='loader'>\n"
+    "            <div class='spinner'></div>\n"
+    "            <div class='loader-text' id='statusText'>Initializing deep security scan...</div>\n"
+    "        </div>\n"
+    "    </div>\n"
+    "    <script>\n"
+    "        function startLoading() {\n"
+    "            document.getElementById('scanForm').style.display = 'none';\n"
+    "            document.getElementById('loader').style.display = 'block';\n"
+    "            const texts = [\n"
+    "                'Analyzing HTTP security headers...',\n"
+    "                'Probing sensitive paths & API endpoints...',\n"
+    "                'Validating cookie security flags...',\n"
+    "                'Compiling executive PDF report...'\n"
+    "            ];\n"
+    "            let i = 0;\n"
+    "            setInterval(() => {\n"
+    "                i = (i + 1) % texts.length;\n"
+    "                document.getElementById('statusText').innerText = texts[i];\n"
+    "            }, 1200);\n"
+    "        }\n"
+    "    </script>\n"
+    "</body>\n"
+    "</html>\n"
+)
+
+# 4. تطبيق FastAPI
 app = FastAPI(title="ProSecurity SaaS Dashboard", version="2.0")
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_home():
-    return """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>ProSecurity SaaS - Advanced Enterprise Scanner</title>
-        <style>
-            :root {
-                --bg-color: #0f172a;
-                --card-bg: #1e293b;
-                --accent-color: #38bdf8;
-                --accent-hover: #0ea5e9;
-                --text-main: #f8fafc;
-                --text-muted: #94a3b8;
-                --border-color: #334155;
-            }
-            body {
-                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-                background-color: var(--bg-color);
-                color: var(--text-main);
-                margin: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-            .container {
-                background: var(--card-bg);
-                width: 100%;
-                max-width: 480px;
-                padding: 40px;
-                border-radius: 16px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-                border: 1px solid var(--border-color);
-                text-align: center;
-            }
-            .logo-icon {
-                font-size: 48px;
-                margin-bottom: 10px;
-            }
-            h2 {
-                color: var(--text-main);
-                font-size: 24px;
-                font-weight: 600;
-                margin-bottom: 8px;
-            }
-            p {
-                color: var(--text-muted);
-                font-size: 14px;
-                margin-bottom: 30px;
-            }
-            .input-group {
-                margin-bottom: 20px;
-            }
-            input[type="text"] {
-                width: 100%;
-                padding: 14px 16px;
-                background: #0f172a;
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                color: var(--text-main);
-                font-size: 15px;
-                outline: none;
-                box-sizing: border-box;
-            }
-            input[type="text"]:focus {
-                border-color: var(--accent-color);
-            }
-            button {
-                width: 100%;
-                background-color: var(--accent-color);
-                color: #0f172a;
-                border: none;
-                padding: 14px;
-                font-size: 16px;
-                font-weight: 600;
-                border-radius: 8px;
-                cursor: pointer;
-            }
-            button:hover {
-                background-color: var(--accent-hover);
-            }
-            #loader {
-                display: none;
-                margin-top: 20px;
-            }
-            .spinner {
-                width: 36px;
-                height: 36px;
-                border: 3px solid var(--border-color);
-                border-top: 3px solid var(--accent-color);
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 15px auto;
-            }
+    return HTMLResponse(content=HTML_TEMPLATE)
+
+@app.post("/scan", response_class=StreamingResponse)
+async def run_scan_endpoint(target_url: str = Form(...)):
+    scanner = AdvancedSecurityScanner(target_url)
+    scanner.run_advanced_scan()
+    
+    pdf_buffer = BytesIO()
+    scanner.export_pdf_report(pdf_buffer)
+    pdf_buffer.seek(0)
+    
+    filename = f"security_report_{abs(hash(target_url))}.pdf"
+    
+    return StreamingResponse(
+        pdf_buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
