@@ -142,7 +142,7 @@ class AISecurityScanner:
         except Exception as e:
             self.results["ai_analysis"] = f"Executive security summary generated via advanced automated heuristics. (API detail: {str(e)})"
 
-    def export_pdf_report(self, buffer):
+        def export_pdf_report(self, buffer):
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
         story = []
         styles = getSampleStyleSheet()
@@ -150,34 +150,34 @@ class AISecurityScanner:
         title_style = ParagraphStyle('ExecTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor("#1A365D"), spaceAfter=15, alignment=1)
         subtitle_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor("#4A5568"), spaceAfter=25, alignment=1)
         heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor("#2B6CB0"), spaceBefore=15, spaceAfter=10)
-        body_style = ParagraphStyle('BodyTextCustom', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#2D3748"), leading=13)
+        body_style = ParagraphStyle('BodyTextCustom', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#2D3748"), leading=14)
 
         story.append(Paragraph("AI-Driven Executive Security Report", title_style))
         story.append(Paragraph(f"Target System: <b>{self.target_url}</b>", subtitle_style))
         story.append(Spacer(1, 10))
 
-        # قسم تحليل الذكاء الاصطناعي مع تنظيف آمن للرموز
+        # قسم تحليل الذكاء الاصطناعي مع تنظيف شامل لجميع رموز الـ Markdown والجداول غير المدعومة
         story.append(Paragraph("1. AI Security Expert Analysis & Remediation", heading_style))
         
-        # تنظيف وتحويل رموز الماركداون لتتوافق مع ReportLab بأمان تام
         raw_ai_text = self.results["ai_analysis"]
+        
+        # تنظيف وتحويل النص لتجنب أي تعارض مع ReportLab
         cleaned_text = (
             raw_ai_text
             .replace('&', '&amp;')
             .replace('<', '&lt;')
             .replace('>', '&gt;')
+            .replace('**', '<b>')         # تحويل النجوم إلى خط عريض مدعوم
+            .replace('---', '<br/>')      # إزالة الخطوط الفاصلة المعقدة
+            .replace('___', '<br/>')
+            .replace('|', ' - ')          # تحويل أعمدة الجداول إلى نص عادي منظم
             .replace('\n', '<br/>')
-            .replace('### ', '<b><u>')
-            .replace('## ', '<b>')
-            .replace('# ', '<b>')
         )
-        # إغلاق وسم العناوين البسيطة
-        cleaned_text = cleaned_text.replace('<b><u>', '<br/><font color="#1A365D"><b><u>').replace('</u></b>', '</u></b></font><br/>')
         
         story.append(Paragraph(cleaned_text, body_style))
         story.append(Spacer(1, 15))
 
-        # جدول ترويسات الأمان
+        # جدول ترويسات الأمان الأساسي
         story.append(Paragraph("2. Security Headers Analysis", heading_style))
         headers_data = [["Header Name", "Status", "Risk", "Description"]]
         for header, details in self.results.get("security_headers", {}).items():
@@ -204,7 +204,6 @@ class AISecurityScanner:
             story.append(t)
             
         doc.build(story)
-        
 
 # 2. قالب الواجهة العصرية
 HTML_TEMPLATE = (
