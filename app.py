@@ -5,6 +5,7 @@ import requests
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import concurrent.futures
+import re
 from google import genai
 
 # تهيئة عميل الذكاء الاصطناعي
@@ -125,7 +126,7 @@ class AISecurityScanner:
             - Sensitive Files/Endpoints Exposed: {self.results["sensitive_files"]}
             - Vulnerabilities / Insecure Cookies: {self.results["potential_vulnerabilities"]}
             
-            Provide a professional executive security summary, risk assessment, and specific technical remediation steps including code snippets to fix these issues. Format your response cleanly.
+            Provide a professional executive security summary, risk assessment matrix, and specific technical remediation steps including code snippets to fix these issues. Format your response clearly using markdown.
             """
             
             response = ai_client.models.generate_content(
@@ -137,7 +138,74 @@ class AISecurityScanner:
         except Exception as e:
             self.results["ai_analysis"] = f"Executive security summary generated via advanced heuristics. (API notice: {str(e)})"
 
-# 2. الواجهة الرئيسية (Dashboard)
+# 2. دالة تحويل الـ Markdown إلى HTML منسق وأنيق
+def markdown_to_html(text):
+    if not text:
+        return ""
+    
+    lines = text.split('\n')
+    html_lines = []
+    in_table = False
+    table_rows = []
+
+    for line in lines:
+        line_str = line.strip()
+        
+        # معالجة جداول الماركداون وتحويلها إلى عناصر جدول HTML حقيقية
+        if line_str.startswith('|') and line_str.endswith('|'):
+            if '---' in line_str:
+                continue # تخطي خط الفصل الفاصل بين الهيدر والمحتوى
+            if not in_table:
+                in_table = True
+                table_rows = ["<table style='width:100%; border-collapse:collapse; margin:15px 0; background:#0f172a; border-radius:8px; overflow:hidden;'>"]
+            
+            cols = [c.strip() for c in line_str.split('|')[1:-1]]
+            tag = "th" if len(table_rows) == 1 else "td"
+            bg_style = "background:#2563eb; color:#ffffff;" if tag == "th" else "border-bottom:1px solid #334155; padding:10px; font-size:13.5px;"
+            if tag == "th":
+                row_html = "<tr>" + "".join([f"<th style='padding:12px 10px; text-align:left; {bg_style}'>{c}</th>" for c in cols]) + "</tr>"
+            else:
+                row_html = "<tr>" + "".join([f"<td style='{bg_style}'>{c}</td>" for c in cols]) + "</tr>"
+            table_rows.append(row_html)
+            continue
+        else:
+            if in_table:
+                table_rows.append("</table>")
+                html_lines.append("".join(table_rows))
+                in_table = False
+                table_rows = []
+
+        # معالجة الخطوط الفاصلة
+        if line_str in ['---', '___', '***']:
+            html_lines.append('<hr style="border: 0; height: 1px; background: #334155; margin: 25px 0;">')
+            continue
+
+        # معالجة العناوين
+        if line_str.startswith('### '):
+            html_lines.append(f'<h4 style="color: #38bdf8; margin-top: 20px; font-size: 16px;">{line_str[4:]}</h4>')
+            continue
+        elif line_str.startswith('## '):
+            html_lines.append(f'<h3 style="color: #38bdf8; margin-top: 25px; border-bottom: 1px solid #334155; padding-bottom: 6px; font-size: 18px;">{line_str[3:]}</h3>')
+            continue
+        elif line_str.startswith('# '):
+            html_lines.append(f'<h2 style="color: #38bdf8; margin-top: 30px; font-size: 20px;">{line_str[2:]}</h2>')
+            continue
+
+        # معالجة النصوص العريضة **text**
+        formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<b style="color: #f1f5f9;">\1</b>', line_str)
+        
+        if formatted_line:
+            html_lines.append(f'<p style="margin: 8px 0; line-height: 1.6; color: #cbd5e1;">{formatted_line}</p>')
+        else:
+            html_lines.append('<div style="height: 8px;"></div>')
+
+    if in_table:
+        table_rows.append("</table>")
+        html_lines.append("".join(table_rows))
+
+    return "\n".join(html_lines)
+
+# 3. الواجهة الرئيسية (Dashboard)
 HTML_HOME = """
 <!DOCTYPE html>
 <html lang='en'>
@@ -199,7 +267,7 @@ HTML_HOME = """
 </html>
 """
 
-# 3. قالب تقرير الويب التنفيذي الاحترافي
+# 4. قالب تقرير الويب التنفيذي الاحترافي
 def render_html_report(results):
     headers_rows = ""
     for header, details in results.get("security_headers", {}).items():
@@ -214,8 +282,8 @@ def render_html_report(results):
             </tr>
             """
 
-    # تنسيق تحليل الذكاء الاصطناعي ليعرض بشكل فقرات نظيفة
-    ai_content = results["ai_analysis"].replace('\n', '<br>')
+    # تحليل وعرض نصوص الذكاء الاصطناعي بشكل منسق وعصري
+    ai_formatted_content = markdown_to_html(results["ai_analysis"])
 
     return f"""
     <!DOCTYPE html>
@@ -225,16 +293,16 @@ def render_html_report(results):
         <title>AI-Driven Executive Security Report</title>
         <style>
             body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }}
-            .report-container {{ max-width: 900px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }}
+            .report-container {{ max-width: 950px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }}
             h1 {{ color: #38bdf8; text-align: center; margin-bottom: 5px; }}
             .target-sub {{ text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 16px; }}
-            h2 {{ color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 30px; }}
-            .ai-box {{ background: #0f172a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8; line-height: 1.6; font-size: 14.5px; color: #e2e8f0; }}
+            h2 {{ color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 35px; }}
+            .ai-box {{ background: #0f172a; padding: 25px; border-radius: 12px; border-left: 4px solid #38bdf8; line-height: 1.6; font-size: 14.5px; color: #e2e8f0; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; border-radius: 8px; overflow: hidden; }}
             th, td {{ padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }}
             th {{ background: #2563eb; color: #ffffff; }}
             tr:hover {{ background: #1e293b; }}
-            .print-btn {{ display: block; width: 200px; margin: 30px auto 0 auto; background: #38bdf8; color: #0f172a; border: none; padding: 12px; font-weight: 600; font-size: 16px; border-radius: 8px; cursor: pointer; text-align: center; text-decoration: none; }}
+            .print-btn {{ display: block; width: 220px; margin: 35px auto 0 auto; background: #38bdf8; color: #0f172a; border: none; padding: 12px; font-weight: 600; font-size: 16px; border-radius: 8px; cursor: pointer; text-align: center; text-decoration: none; }}
             .print-btn:hover {{ background: #0ea5e9; }}
             @media print {{
                 body {{ background: #ffffff; color: #000000; padding: 0; }}
@@ -253,7 +321,7 @@ def render_html_report(results):
 
             <h2>1. AI Security Expert Analysis & Remediation</h2>
             <div class='ai-box'>
-                {ai_content}
+                {ai_formatted_content}
             </div>
 
             <h2>2. Security Headers Analysis</h2>
@@ -273,7 +341,7 @@ def render_html_report(results):
     </html>
     """
 
-# 4. تطبيق FastAPI
+# 5. تطبيق FastAPI
 app = FastAPI(title="ProSecurity AI SaaS", version="3.8")
 
 @app.get("/", response_class=HTMLResponse)
