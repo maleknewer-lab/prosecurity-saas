@@ -172,4 +172,134 @@ class AISecurityScanner:
             .replace('\n', '<br/>')
         )
         
+        story.append(Paragraph(cleaned_text, body_style))
+        story.append(Spacer(1, 15))
+
+        # جدول ترويسات الأمان
+        story.append(Paragraph("2. Security Headers Analysis", heading_style))
+        headers_data = [["Header Name", "Status", "Risk", "Description"]]
+        for header, details in self.results.get("security_headers", {}).items():
+            if header != "error":
+                headers_data.append([
+                    header, 
+                    details.get("status", "Unknown"), 
+                    details.get("risk", "Low"), 
+                    details.get("description", "Standard audit")
+                ])
         
+        if len(headers_data) > 1:
+            t = Table(headers_data, colWidths=[110, 60, 60, 270])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2B6CB0")),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0,0), (-1,0), 8),
+                ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#F7FAFC")),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+                ('FONTSIZE', (0,0), (-1,-1), 8.5),
+            ]))
+            story.append(t)
+            
+        doc.build(story)
+
+# 2. قالب الواجهة العصرية
+HTML_TEMPLATE = (
+    "<!DOCTYPE html>\n"
+    "<html lang='en'>\n"
+    "<head>\n"
+    "    <meta charset='UTF-8'>\n"
+    "    <title>ProSecurity SaaS - AI-Powered Scanner</title>\n"
+    "    <style>\n"
+    "        :root { --bg-color: #0f172a; --card-bg: #1e293b; --accent-color: #38bdf8; --accent-hover: #0ea5e9; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155; }\n"
+    "        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }\n"
+    "        .container { background: var(--card-bg); width: 100%; max-width: 480px; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); text-align: center; }\n"
+    "        .logo-icon { font-size: 48px; margin-bottom: 10px; }\n"
+    "        h2 { color: var(--text-main); font-size: 24px; font-weight: 600; margin-bottom: 8px; }\n"
+    "        p { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }\n"
+    "        .input-group { margin-bottom: 20px; }\n"
+    "        input[type='text'] { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 15px; outline: none; box-sizing: border-box; }\n"
+    "        input[type='text']:focus { border-color: var(--accent-color); }\n"
+    "        button { width: 100%; background-color: var(--accent-color); color: #0f172a; border: none; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; }\n"
+    "        button:hover { background-color: var(--accent-hover); }\n"
+    "        #loader { display: none; margin-top: 20px; }\n"
+    "        .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top: 3px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }\n"
+    "        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }\n"
+    "        .loader-text { color: var(--accent-color); font-size: 13px; font-weight: 500; }\n"
+    "    </style>\n"
+    "</head>\n"
+    "<body>\n"
+    "    <div class='container'>\n"
+    "        <div class='logo-icon'>🤖🛡️</div>\n"
+    "        <h2>ProSecurity AI SaaS</h2>\n"
+    "        <p>Autonomous Vulnerability Scanner & AI CISO Reporting</p>\n"
+    "        <form id='scanForm' action='/scan' method='post' onsubmit='startLoading()'>\n"
+    "            <div class='input-group'>\n"
+    "                <input type='text' name='target_url' placeholder='https://example.com' required autocomplete='off'>\n"
+    "            </div>\n"
+    "            <button type='submit'>Run AI Security Audit</button>\n"
+    "        </form>\n"
+    "        <div id='loader'>\n"
+    "            <div class='spinner'></div>\n"
+    "            <div class='loader-text' id='statusText'>Gemini is analyzing target architecture...</div>\n"
+    "        </div>\n"
+    "    </div>\n"
+    "    <script>\n"
+    "        function startLoading() {\n"
+    "            document.getElementById('scanForm').style.display = 'none';\n"
+    "            document.getElementById('loader').style.display = 'block';\n"
+    "            const texts = [\n"
+    "                'Probing security headers and endpoints...',\n"
+    "                'Evaluating threat matrix with AI...',\n"
+    "                'Synthesizing remediation code patches...',\n"
+    "                'Compiling executive AI-CISO PDF report...'\n"
+    "            ];\n"
+    "            let i = 0;\n"
+    "            let timer = setInterval(() => {\n"
+    "                i = (i + 1) % texts.length;\n"
+    "                document.getElementById('statusText').innerText = texts[i];\n"
+    "            }, 1500);\n"
+    "            \n"
+    "            setTimeout(() => {\n"
+    "                clearInterval(timer);\n"
+    "                document.getElementById('loader').style.display = 'none';\n"
+    "                document.getElementById('scanForm').reset();\n"
+    "                document.getElementById('scanForm').style.display = 'block';\n"
+    "            }, 6000);\n"
+    "        }\n"
+    "    </script>\n"
+    "</body>\n"
+    "</html>\n"
+)
+
+# 3. تطبيق FastAPI
+app = FastAPI(title="ProSecurity AI SaaS", version="3.8")
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard_home():
+    return HTMLResponse(content=HTML_TEMPLATE)
+
+@app.post("/scan", response_class=StreamingResponse)
+async def run_scan_endpoint(target_url: str = Form(...)):
+    try:
+        scanner = AISecurityScanner(target_url)
+        scanner.run_full_scan()
+        
+        pdf_buffer = BytesIO()
+        scanner.export_pdf_report(pdf_buffer)
+        pdf_buffer.seek(0)
+        
+        filename = f"AI_Security_Report_{abs(hash(target_url))}.pdf"
+        
+        return StreamingResponse(
+            pdf_buffer, 
+            media_type="application/pdf", 
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        return HTMLResponse(content=f"<h3 style='color:red; text-align:center; margin-top:20vh;'>Scan Error: {str(e)}</h3>", status_code=500)
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
