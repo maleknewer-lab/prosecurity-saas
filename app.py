@@ -150,16 +150,31 @@ class AISecurityScanner:
         title_style = ParagraphStyle('ExecTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor("#1A365D"), spaceAfter=15, alignment=1)
         subtitle_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor("#4A5568"), spaceAfter=25, alignment=1)
         heading_style = ParagraphStyle('SectionHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor("#2B6CB0"), spaceBefore=15, spaceAfter=10)
-        body_style = ParagraphStyle('BodyTextCustom', parent=styles['Normal'], fontSize=9.5, textColor=colors.HexColor("#2D3748"), leading=14)
+        body_style = ParagraphStyle('BodyTextCustom', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#2D3748"), leading=13)
 
         story.append(Paragraph("AI-Driven Executive Security Report", title_style))
         story.append(Paragraph(f"Target System: <b>{self.target_url}</b>", subtitle_style))
         story.append(Spacer(1, 10))
 
-        # قسم تحليل الذكاء الاصطناعي
+        # قسم تحليل الذكاء الاصطناعي مع تنظيف آمن للرموز
         story.append(Paragraph("1. AI Security Expert Analysis & Remediation", heading_style))
-        ai_text_clean = self.results["ai_analysis"].replace('\n', '<br/>').replace('**', '<b>').replace('</b>', '</b>')
-        story.append(Paragraph(ai_text_clean, body_style))
+        
+        # تنظيف وتحويل رموز الماركداون لتتوافق مع ReportLab بأمان تام
+        raw_ai_text = self.results["ai_analysis"]
+        cleaned_text = (
+            raw_ai_text
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('\n', '<br/>')
+            .replace('### ', '<b><u>')
+            .replace('## ', '<b>')
+            .replace('# ', '<b>')
+        )
+        # إغلاق وسم العناوين البسيطة
+        cleaned_text = cleaned_text.replace('<b><u>', '<br/><font color="#1A365D"><b><u>').replace('</u></b>', '</u></b></font><br/>')
+        
+        story.append(Paragraph(cleaned_text, body_style))
         story.append(Spacer(1, 15))
 
         # جدول ترويسات الأمان
@@ -189,6 +204,7 @@ class AISecurityScanner:
             story.append(t)
             
         doc.build(story)
+        
 
 # 2. قالب الواجهة العصرية
 HTML_TEMPLATE = (
