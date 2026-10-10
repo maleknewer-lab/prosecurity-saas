@@ -119,7 +119,7 @@ class AISecurityScanner:
                     self.results["sensitive_files"].append(res)
 
     def generate_ai_remediation_insights(self):
-        """الاستعلام من نموذج gemini-2.5-flash المستقر والمزود بحماية كاملة"""
+        """الاستعلام من نموذج gemini-3.8-flash المستقر والمزود بحماية كاملة"""
         try:
             prompt = f"""
             You are an elite Chief Information Security Officer (CISO) and AI security expert.
@@ -134,7 +134,7 @@ class AISecurityScanner:
             """
             
             response = ai_client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.8-flash',
                 contents=prompt
             )
             if response and response.text:
